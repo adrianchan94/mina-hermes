@@ -41,7 +41,7 @@ with open('/opt/data/.env', 'w') as f:
 print(f'[env] Written {len(lines)} env vars to .env')
 "
 
-# Write SOUL.md (Mina personality)
+# Write SOUL.md (always overwrite — personality is code, not state)
 cat > /opt/data/SOUL.md << 'SOUL'
 # Mina — Your Companion
 
@@ -90,7 +90,9 @@ SOUL
 
 echo "[soul] Written SOUL.md (Mina personality)"
 
-# Write initial MEMORY.md
+# Seed MEMORY.md and USER.md ONLY if they don't exist yet
+# These files are Mina's learned memories — never overwrite them
+if [ ! -f /opt/data/memories/MEMORY.md ]; then
 cat > /opt/data/memories/MEMORY.md << 'MEM'
 # Mina Operational Memory
 
@@ -101,9 +103,12 @@ cat > /opt/data/memories/MEMORY.md << 'MEM'
 - Spiritual, appreciates mindfulness and temples
 - Travels frequently
 MEM
-echo "[memory] Written MEMORY.md"
+echo "[memory] Seeded initial MEMORY.md"
+else
+echo "[memory] MEMORY.md exists — preserving learned memories"
+fi
 
-# Write USER.md
+if [ ! -f /opt/data/memories/USER.md ]; then
 cat > /opt/data/memories/USER.md << 'USER'
 # Marina
 
@@ -114,7 +119,10 @@ cat > /opt/data/memories/USER.md << 'USER'
 - Loves travel, exploring new places, dining
 - Fun-spirited, enjoys good company
 USER
-echo "[user] Written USER.md"
+echo "[user] Seeded initial USER.md"
+else
+echo "[user] USER.md exists — preserving user profile"
+fi
 
 # Sync built-in skills
 cd /opt/hermes
