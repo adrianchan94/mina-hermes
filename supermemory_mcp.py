@@ -1,4 +1,4 @@
-"""Supermemory MCP bridge — stdio MCP server that wraps the Supermemory HTTP API.
+"""Supermemory MCP bridge — stdio MCP server that wraps the Supermemory v4 API.
 Hermes Agent spawns this as a subprocess and gets memory/recall tools."""
 
 import os
@@ -8,7 +8,6 @@ import urllib.error
 from mcp.server.fastmcp import FastMCP
 
 SUPERMEMORY_API_KEY = os.environ.get("SUPERMEMORY_API_KEY", "")
-SUPERMEMORY_API_URL = "https://api.supermemory.ai/v3"
 CONTAINER_TAG = "mina"
 
 mcp = FastMCP("supermemory-bridge")
@@ -19,7 +18,7 @@ def _api(method: str, path: str, body: dict = None, timeout: int = 15) -> dict:
     if not SUPERMEMORY_API_KEY:
         return {"ok": False, "error": "SUPERMEMORY_API_KEY not set"}
 
-    url = f"{SUPERMEMORY_API_URL}{path}"
+    url = f"https://api.supermemory.ai{path}"
     headers = {
         "Authorization": f"Bearer {SUPERMEMORY_API_KEY}",
         "Content-Type": "application/json",
@@ -43,94 +42,108 @@ def _api(method: str, path: str, body: dict = None, timeout: int = 15) -> dict:
 
 
 @mcp.tool()
-def supermemory_remember(content: str, tags: str = "") -> str:
+def supermemory_remember(content: str) -> str:
     """Save a memory to Supermemory. Use this to remember important things about
     the user — preferences, favorite places, travel plans, dietary needs, names,
     dates, anything worth remembering for future conversations.
 
     Args:
         content: The memory to save (be specific and detailed)
-        tags: Optional comma-separated tags for organization
     """
-    body = {"content": content}
-    if tags:
-        body["containerTags"] = [t.strip() for t in tags.split(",")]
-    else:
-        body["containerTags"] = [CONTAINER_TAG]
+    # v4 API: memories array of objects + containerTag
+    body = {
+        "memories": [{"content": content}],
+        "containerTag": CONTAINER_TAG,
+    }
 
-    result = _api("POST", "/documents", body)
+    result = _api("POST", "/v4/memories", body)
     if result.get("ok"):
-        return f"Remembered: {content[:100]}..."
+        data = result.get("data", {})
+        memories = data.get("memories", [])
+        if memories:
+            return f"Remembered: {memories[0].get('memory', content[:100])}"
+        return f"Remembered: {content[:100]}"
     return f"Failed to save memory: {result.get('error', 'unknown error')}"
 
 
 @mcp.tool()
-def supermemory_recall(query: str, limit: int = 8) -> str:
-    """Search Supermemory for relevant memories. Use this to recall what you know
-    about the user, their preferences, past conversations, travel plans, etc.
+def supermemory_recall(query: str = "") -> str:
+    """Recall memories from Supermemory. Returns all stored memories about the user.
+    Use this to recall what you know about the user — preferences, past conversations,
+    travel plans, etc.
 
     Args:
-        query: What to search for (e.g. "favorite restaurants", "travel plans")
-        limit: Max number of memories to return (default 8)
+        query: Optional search hint (currently lists all memories, filter by keyword)
     """
-    body = {
-        "q": query,
+    # v4 memories/list returns all memories (search index unreliable)
+    result = _api("POST", "/v4/memories/list", {
         "containerTags": [CONTAINER_TAG],
-        "limit": limit,
-    }
+    })
 
-    result = _api("POST", "/search", body)
     if not result.get("ok"):
         return f"Recall failed: {result.get('error', 'unknown error')}"
 
     data = result.get("data", {})
-    memories = data.get("results", data.get("memories", data.get("documents", [])))
+    entries = data.get("memoryEntries", [])
 
-    if not memories:
-        return f"No memories found for: {query}"
+    if not entries:
+        return "No memories stored yet."
+
+    # Filter by query if provided
+    if query:
+        query_lower = query.lower()
+        entries = [e for e in entries if query_lower in e.get("memory", "").lower()]
+
+    if not entries:
+        return f"No memories matching: {query}"
+
+    # Filter out forgotten memories
+    active = [e for e in entries if not e.get("isForgotten", False)]
 
     parts = []
-    for i, mem in enumerate(memories[:limit], 1):
-        content = mem.get("content", mem.get("text", mem.get("title", "")))
-        if content:
-            parts.append(f"{i}. {content.strip()[:300]}")
+    for i, mem in enumerate(active[:15], 1):
+        memory_text = mem.get("memory", "")
+        if memory_text:
+            parts.append(f"{i}. {memory_text.strip()[:300]}")
 
     return f"Found {len(parts)} memories:\n" + "\n".join(parts)
 
 
 @mcp.tool()
-def supermemory_forget(content: str) -> str:
+def supermemory_forget(memory_text: str) -> str:
     """Forget/remove a memory from Supermemory. Use when the user asks you to
     forget something or when information is no longer relevant.
 
     Args:
-        content: Description of what to forget
+        memory_text: The memory text to forget (will match against stored memories)
     """
-    # First search for the memory
-    search_result = _api("POST", "/search", {
-        "q": content,
+    # List all memories and find a match
+    result = _api("POST", "/v4/memories/list", {
         "containerTags": [CONTAINER_TAG],
-        "limit": 3,
     })
 
-    if not search_result.get("ok"):
-        return f"Could not search for memory to forget: {search_result.get('error')}"
+    if not result.get("ok"):
+        return f"Could not list memories: {result.get('error')}"
 
-    data = search_result.get("data", {})
-    memories = data.get("results", data.get("memories", data.get("documents", [])))
+    entries = result.get("data", {}).get("memoryEntries", [])
+    query_lower = memory_text.lower()
 
-    if not memories:
-        return f"No matching memory found for: {content}"
+    # Find best match
+    match = None
+    for entry in entries:
+        if query_lower in entry.get("memory", "").lower():
+            match = entry
+            break
 
-    # Delete the first match
-    mem_id = memories[0].get("id", memories[0].get("_id", ""))
-    if mem_id:
-        del_result = _api("DELETE", f"/documents/{mem_id}")
-        if del_result.get("ok"):
-            return f"Forgotten: {content[:100]}"
-        return f"Failed to forget: {del_result.get('error')}"
+    if not match:
+        return f"No matching memory found for: {memory_text}"
 
-    return "Could not identify the memory to forget"
+    # Delete via v4 API
+    mem_id = match.get("id", "")
+    del_result = _api("DELETE", "/v4/memories", {"memoryIds": [mem_id]})
+    if del_result.get("ok"):
+        return f"Forgotten: {match.get('memory', memory_text)[:100]}"
+    return f"Failed to forget: {del_result.get('error')}"
 
 
 if __name__ == "__main__":
