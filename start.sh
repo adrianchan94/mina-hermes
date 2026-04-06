@@ -20,6 +20,8 @@ mapped = {
     'HERMES_TELEGRAM_MEDIA_BATCH_DELAY_SECONDS': '0.8',
     'MESSAGING_CWD': '/opt/data',
     'THINKING_DISPLAY': 'strip',
+    # Force English for STT — prevents misdetection on short voice clips
+    'HERMES_LOCAL_STT_LANGUAGE': 'en',
 }
 
 skip = {'PATH', 'HOME', 'HOSTNAME', 'PWD', 'SHLVL', 'TERM', '_', 'HERMES_HOME',

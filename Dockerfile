@@ -25,6 +25,10 @@ RUN python3 /opt/hermes/patch_pr4558.py
 COPY patch_telegram_fallback.py /opt/hermes/patch_telegram_fallback.py
 RUN python3 /opt/hermes/patch_telegram_fallback.py
 
+# Patch: force STT language for faster-whisper (prevents misdetection)
+COPY patch_stt_language.py /opt/hermes/patch_stt_language.py
+RUN python3 /opt/hermes/patch_stt_language.py
+
 # Our config + entrypoint
 COPY mina-config.yaml /opt/hermes/mina-config.yaml
 COPY start.sh /opt/hermes/start.sh

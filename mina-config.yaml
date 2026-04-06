@@ -106,7 +106,8 @@ unauthorized_dm_behavior: pair
 stt:
   enabled: true
   provider: local
-  model: base
+  model: small                   # Better accuracy than 'base' (~500MB)
+  language: en                   # Force English — avoids misdetection on short clips
 
 # ── Terminal ─────────────────────────────────────────────────────────
 terminal:
