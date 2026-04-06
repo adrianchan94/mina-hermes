@@ -126,6 +126,12 @@ else
 echo "[user] USER.md exists — preserving user profile"
 fi
 
+# Copy Supermemory plugin to HERMES_HOME/plugins
+mkdir -p /opt/data/plugins/supermemory-context
+cp /opt/hermes/supermemory_plugin/plugin.yaml /opt/data/plugins/supermemory-context/
+cp /opt/hermes/supermemory_plugin/__init__.py /opt/data/plugins/supermemory-context/
+echo "[plugin] Copied supermemory-context plugin to /opt/data/plugins/"
+
 # Sync built-in skills
 cd /opt/hermes
 python3 -c "from hermes.skills.sync import sync_skills; sync_skills()" 2>/dev/null || echo "[skills] Sync skipped (first run)"

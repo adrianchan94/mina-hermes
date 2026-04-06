@@ -106,7 +106,7 @@ unauthorized_dm_behavior: pair
 stt:
   enabled: true
   provider: local
-  model: small                   # Better accuracy than 'base' (~500MB)
+  model: base                    # ~150MB, downloads reliably without HF auth
   language: en                   # Force English — avoids misdetection on short clips
 
 # ── Terminal ─────────────────────────────────────────────────────────
@@ -118,6 +118,7 @@ terminal:
   env_passthrough:
     - MINIMAX_API_KEY
     - OPENROUTER_API_KEY
+    - SUPERMEMORY_API_KEY
     - TAVILY_API_KEY
 
 # ── File handling ────────────────────────────────────────────────────
@@ -193,6 +194,15 @@ approvals:
 checkpoints:
   enabled: true
   max_snapshots: 50
+
+# ── MCP Servers (Supermemory — persistent memory across restarts) ────
+mcp_servers:
+  supermemory:
+    url: "https://mcp.supermemory.ai/mcp"
+    headers:
+      Authorization: "Bearer ${SUPERMEMORY_API_KEY}"
+    timeout: 30
+    connection_timeout: 15
 
 # ── Timezone ─────────────────────────────────────────────────────────
 timezone: "Asia/Hong_Kong"
