@@ -34,8 +34,11 @@ RUN python3 /opt/hermes/patch_stt_language.py
 RUN python3 -c "from faster_whisper import WhisperModel; WhisperModel('base', device='cpu', compute_type='int8')" \
     && echo "[whisper] Pre-downloaded 'base' model into Docker image"
 
+# Install MCP SDK for Supermemory bridge
+RUN pip install --no-cache-dir --break-system-packages "mcp[cli]"
+
 # Our customizations
-COPY supermemory_plugin/ /opt/hermes/supermemory_plugin/
+COPY supermemory_mcp.py /opt/hermes/supermemory_mcp.py
 COPY mina-config.yaml /opt/hermes/mina-config.yaml
 COPY start.sh /opt/hermes/start.sh
 RUN chmod +x /opt/hermes/start.sh

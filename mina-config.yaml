@@ -198,9 +198,10 @@ checkpoints:
 # ── MCP Servers (Supermemory — persistent memory across restarts) ────
 mcp_servers:
   supermemory:
-    url: "https://mcp.supermemory.ai/mcp"
-    headers:
-      Authorization: "Bearer ${SUPERMEMORY_API_KEY}"
+    command: "python3"
+    args: ["/opt/hermes/supermemory_mcp.py"]
+    env:
+      SUPERMEMORY_API_KEY: "${SUPERMEMORY_API_KEY}"
     timeout: 30
     connection_timeout: 15
 
