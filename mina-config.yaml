@@ -96,6 +96,12 @@ terminal:
     - MINIMAX_API_KEY
     - TAVILY_API_KEY
 
+# ── Speech-to-text (voice messages) ──────────────────────────────────
+stt:
+  enabled: true
+  provider: local              # faster-whisper, free, runs in container
+  model: base                  # ~150MB, good balance of speed/accuracy
+
 # ── File handling ────────────────────────────────────────────────────
 file_read_max_chars: 200000
 
