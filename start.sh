@@ -22,6 +22,8 @@ mapped = {
     'THINKING_DISPLAY': 'strip',
     # Force English for STT — prevents misdetection on short voice clips
     'HERMES_LOCAL_STT_LANGUAGE': 'en',
+    # HuggingFace cache on persistent volume (survives restarts)
+    'HF_HOME': '/opt/data/hf-cache',
 }
 
 skip = {'PATH', 'HOME', 'HOSTNAME', 'PWD', 'SHLVL', 'TERM', '_', 'HERMES_HOME',

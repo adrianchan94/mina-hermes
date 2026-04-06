@@ -29,6 +29,11 @@ RUN python3 /opt/hermes/patch_telegram_fallback.py
 COPY patch_stt_language.py /opt/hermes/patch_stt_language.py
 RUN python3 /opt/hermes/patch_stt_language.py
 
+# Pre-download faster-whisper 'base' model at build time
+# This avoids HuggingFace rate-limiting at runtime
+RUN python3 -c "from faster_whisper import WhisperModel; WhisperModel('base', device='cpu', compute_type='int8')" \
+    && echo "[whisper] Pre-downloaded 'base' model into Docker image"
+
 # Our customizations
 COPY supermemory_plugin/ /opt/hermes/supermemory_plugin/
 COPY mina-config.yaml /opt/hermes/mina-config.yaml
