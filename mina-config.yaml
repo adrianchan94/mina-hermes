@@ -21,7 +21,7 @@ agent:
 auxiliary:
   vision:
     provider: openrouter
-    model: "google/gemini-3-flash-preview"  # Cheap multimodal — MiniMax can't do vision
+    model: "google/gemma-4-26b-a4b-it"  # Gemma 4 26B — multimodal (images/video)
     timeout: 30
   web_extract:
     provider: custom
