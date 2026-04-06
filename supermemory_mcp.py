@@ -1,5 +1,13 @@
 """Supermemory MCP bridge — stdio MCP server that wraps the Supermemory v4 API.
-Hermes Agent spawns this as a subprocess and gets memory/recall tools."""
+
+Validated against official docs: https://supermemory.ai/docs/api-reference/
+
+Endpoints used:
+  POST /v4/memories          — Create memories (bypasses document ingestion)
+  POST /v4/search            — Hybrid search across memories
+  DELETE /v4/memories        — Soft-delete (forget) a memory
+  POST /v4/memories/list     — List all memories in a container
+"""
 
 import os
 import json
@@ -14,7 +22,6 @@ mcp = FastMCP("supermemory-bridge")
 
 
 def _api(method: str, path: str, body: dict = None, timeout: int = 15) -> dict:
-    """Make a request to Supermemory API."""
     if not SUPERMEMORY_API_KEY:
         return {"ok": False, "error": "SUPERMEMORY_API_KEY not set"}
 
@@ -42,17 +49,24 @@ def _api(method: str, path: str, body: dict = None, timeout: int = 15) -> dict:
 
 
 @mcp.tool()
-def supermemory_remember(content: str) -> str:
+def supermemory_remember(content: str, is_static: bool = False) -> str:
     """Save a memory to Supermemory. Use this to remember important things about
     the user — preferences, favorite places, travel plans, dietary needs, names,
     dates, anything worth remembering for future conversations.
 
     Args:
         content: The memory to save (be specific and detailed)
+        is_static: True for permanent facts (name, birthday), False for changeable info
     """
-    # v4 API: memories array of objects + containerTag
+    # Docs: POST /v4/memories
+    # Body: { memories: [{content, isStatic?, metadata?, forgetAfter?}], containerTag }
     body = {
-        "memories": [{"content": content}],
+        "memories": [
+            {
+                "content": content,
+                "isStatic": is_static,
+            }
+        ],
         "containerTag": CONTAINER_TAG,
     }
 
@@ -67,15 +81,45 @@ def supermemory_remember(content: str) -> str:
 
 
 @mcp.tool()
-def supermemory_recall(query: str = "") -> str:
-    """Recall memories from Supermemory. Returns all stored memories about the user.
-    Use this to recall what you know about the user — preferences, past conversations,
-    travel plans, etc.
+def supermemory_recall(query: str, limit: int = 10) -> str:
+    """Search Supermemory for relevant memories. Use this to recall what you know
+    about the user, their preferences, past conversations, travel plans, etc.
 
     Args:
-        query: Optional search hint (currently lists all memories, filter by keyword)
+        query: What to search for (e.g. "favorite restaurants", "travel plans")
+        limit: Max number of results (default 10)
     """
-    # v4 memories/list returns all memories (search index unreliable)
+    # Docs: POST /v4/search
+    # Body: { q, containerTag, searchMode: "hybrid", limit }
+    result = _api("POST", "/v4/search", {
+        "q": query,
+        "containerTag": CONTAINER_TAG,
+        "searchMode": "hybrid",
+        "limit": limit,
+    })
+
+    if not result.get("ok"):
+        # Fallback to listing all memories if search fails
+        return _recall_via_list(query)
+
+    data = result.get("data", {})
+    results = data.get("results", [])
+
+    if not results:
+        # Search index may not be ready — fallback to list
+        return _recall_via_list(query)
+
+    parts = []
+    for i, mem in enumerate(results[:limit], 1):
+        text = mem.get("memory", mem.get("content", mem.get("text", "")))
+        if text:
+            parts.append(f"{i}. {text.strip()[:300]}")
+
+    return f"Found {len(parts)} memories:\n" + "\n".join(parts)
+
+
+def _recall_via_list(query: str = "") -> str:
+    """Fallback: list all memories and filter client-side."""
     result = _api("POST", "/v4/memories/list", {
         "containerTags": [CONTAINER_TAG],
     })
@@ -83,67 +127,57 @@ def supermemory_recall(query: str = "") -> str:
     if not result.get("ok"):
         return f"Recall failed: {result.get('error', 'unknown error')}"
 
-    data = result.get("data", {})
-    entries = data.get("memoryEntries", [])
+    entries = result.get("data", {}).get("memoryEntries", [])
+    active = [e for e in entries if not e.get("isForgotten", False)]
 
-    if not entries:
-        return "No memories stored yet."
-
-    # Filter by query if provided
     if query:
         query_lower = query.lower()
-        entries = [e for e in entries if query_lower in e.get("memory", "").lower()]
+        active = [e for e in active if query_lower in e.get("memory", "").lower()]
 
-    if not entries:
-        return f"No memories matching: {query}"
-
-    # Filter out forgotten memories
-    active = [e for e in entries if not e.get("isForgotten", False)]
+    if not active:
+        return f"No memories found{' for: ' + query if query else ''}."
 
     parts = []
     for i, mem in enumerate(active[:15], 1):
-        memory_text = mem.get("memory", "")
-        if memory_text:
-            parts.append(f"{i}. {memory_text.strip()[:300]}")
+        text = mem.get("memory", "")
+        if text:
+            parts.append(f"{i}. {text.strip()[:300]}")
 
     return f"Found {len(parts)} memories:\n" + "\n".join(parts)
 
 
 @mcp.tool()
-def supermemory_forget(memory_text: str) -> str:
+def supermemory_forget(content: str, reason: str = "") -> str:
     """Forget/remove a memory from Supermemory. Use when the user asks you to
     forget something or when information is no longer relevant.
 
     Args:
-        memory_text: The memory text to forget (will match against stored memories)
+        content: The memory content to forget (matched against stored memories)
+        reason: Optional reason for forgetting
     """
-    # List all memories and find a match
-    result = _api("POST", "/v4/memories/list", {
-        "containerTags": [CONTAINER_TAG],
-    })
+    # Docs: DELETE /v4/memories
+    # Body: { containerTag, content?, id?, reason? }
+    body = {
+        "containerTag": CONTAINER_TAG,
+        "content": content,
+    }
+    if reason:
+        body["reason"] = reason
 
-    if not result.get("ok"):
-        return f"Could not list memories: {result.get('error')}"
+    result = _api("DELETE", "/v4/memories", body)
+    if result.get("ok"):
+        data = result.get("data", {})
+        if data.get("forgotten"):
+            return f"Forgotten: {content[:100]}"
+        return f"Processed forget request for: {content[:100]}"
+    return f"Failed to forget: {result.get('error', 'unknown error')}"
 
-    entries = result.get("data", {}).get("memoryEntries", [])
-    query_lower = memory_text.lower()
 
-    # Find best match
-    match = None
-    for entry in entries:
-        if query_lower in entry.get("memory", "").lower():
-            match = entry
-            break
-
-    if not match:
-        return f"No matching memory found for: {memory_text}"
-
-    # Delete via v4 API
-    mem_id = match.get("id", "")
-    del_result = _api("DELETE", "/v4/memories", {"memoryIds": [mem_id]})
-    if del_result.get("ok"):
-        return f"Forgotten: {match.get('memory', memory_text)[:100]}"
-    return f"Failed to forget: {del_result.get('error')}"
+@mcp.tool()
+def supermemory_list_all() -> str:
+    """List ALL stored memories. Use this to see everything you remember about
+    the user. Good for checking what you know before a conversation."""
+    return _recall_via_list()
 
 
 if __name__ == "__main__":
