@@ -1,0 +1,182 @@
+# ═══════════════════════════════════════════════════════════════════════
+# Mina — Personal Companion for Marina
+# Hermes Agent on MiniMax M2.7 Highspeed
+# ═══════════════════════════════════════════════════════════════════════
+
+# ── Model ────────────────────────────────────────────────────────────
+model:
+  default: "MiniMax-M2.7-highspeed"
+  provider: custom
+  base_url: "https://api.minimax.io/v1"
+  api_key: "${MINIMAX_API_KEY}"
+  include_thinking: true
+
+# ── Agent behavior ───────────────────────────────────────────────────
+agent:
+  max_turns: 60
+  reasoning_effort: medium
+  tool_use_enforcement: auto
+
+# ── Auxiliary models (all MiniMax direct) ────────────────────────────
+auxiliary:
+  vision:
+    provider: custom
+    model: "MiniMax-M2.7-highspeed"
+    base_url: "https://api.minimax.io/v1"
+    api_key: "${MINIMAX_API_KEY}"
+    timeout: 30
+  web_extract:
+    provider: custom
+    model: "MiniMax-M2.7-highspeed"
+    base_url: "https://api.minimax.io/v1"
+    api_key: "${MINIMAX_API_KEY}"
+    timeout: 30
+  compression:
+    provider: custom
+    model: "MiniMax-M2.7-highspeed"
+    base_url: "https://api.minimax.io/v1"
+    api_key: "${MINIMAX_API_KEY}"
+    timeout: 120
+  session_search:
+    provider: custom
+    model: "MiniMax-M2.7-highspeed"
+    base_url: "https://api.minimax.io/v1"
+    api_key: "${MINIMAX_API_KEY}"
+    timeout: 30
+  flush_memories:
+    provider: custom
+    model: "MiniMax-M2.7-highspeed"
+    base_url: "https://api.minimax.io/v1"
+    api_key: "${MINIMAX_API_KEY}"
+    timeout: 30
+  mcp:
+    provider: custom
+    model: "MiniMax-M2.7-highspeed"
+    base_url: "https://api.minimax.io/v1"
+    api_key: "${MINIMAX_API_KEY}"
+    timeout: 30
+  skills_hub:
+    provider: custom
+    model: "MiniMax-M2.7-highspeed"
+    base_url: "https://api.minimax.io/v1"
+    api_key: "${MINIMAX_API_KEY}"
+    timeout: 30
+  approval:
+    provider: custom
+    model: "MiniMax-M2.7-highspeed"
+    base_url: "https://api.minimax.io/v1"
+    api_key: "${MINIMAX_API_KEY}"
+    timeout: 30
+
+# ── Context compression ─────────────────────────────────────────────
+compression:
+  enabled: true
+  threshold: 0.60
+  target_ratio: 0.20
+  protect_last_n: 25
+  summary_model: "MiniMax-M2.7-highspeed"
+  summary_provider: custom
+  summary_base_url: "https://api.minimax.io/v1"
+  summary_api_key: "${MINIMAX_API_KEY}"
+
+# ── Memory ───────────────────────────────────────────────────────────
+memory:
+  memory_enabled: true
+  user_profile_enabled: true
+  memory_char_limit: 3000
+  user_char_limit: 1500
+
+# ── Terminal ─────────────────────────────────────────────────────────
+terminal:
+  backend: local
+  cwd: "/opt/data"
+  timeout: 180
+  persistent_shell: true
+  env_passthrough:
+    - MINIMAX_API_KEY
+    - TAVILY_API_KEY
+
+# ── File handling ────────────────────────────────────────────────────
+file_read_max_chars: 200000
+
+# ── Code execution ──────────────────────────────────────────────────
+code_execution:
+  timeout: 300
+  max_tool_calls: 40
+
+# ── Web search ──────────────────────────────────────────────────────
+web:
+  backend: firecrawl
+
+# ── Browser ──────────────────────────────────────────────────────────
+browser:
+  inactivity_timeout: 120
+  command_timeout: 30
+  record_sessions: false
+
+# ── Platform toolsets ────────────────────────────────────────────────
+platform_toolsets:
+  cli: hermes-cli
+  telegram: hermes-telegram
+
+# ── Platforms ────────────────────────────────────────────────────────
+platforms:
+  telegram:
+    enabled: true
+    reply_to_mode: "first"
+  api_server:
+    enabled: true
+    extra:
+      host: "0.0.0.0"
+      port: 8642
+  discord:
+    enabled: false
+  slack:
+    enabled: false
+
+# ── Streaming ────────────────────────────────────────────────────────
+streaming:
+  enabled: true
+  transport: "auto"
+  discord: false
+  cli: true
+  edit_interval: 2.0
+  buffer_threshold: 80
+  min_tokens: 20
+
+# ── Display ──────────────────────────────────────────────────────────
+display:
+  tool_progress: new
+  tool_progress_command: true
+  compact: true
+  streaming: true
+  show_cost: false
+  show_reasoning: false
+  bell_on_complete: false
+
+# ── Human delay (off for speed) ─────────────────────────────────────
+human_delay:
+  mode: "off"
+
+# ── Session resets ──────────────────────────────────────────────────
+session_reset:
+  mode: idle
+  idle_hours: 48
+
+group_sessions_per_user: true
+unauthorized_dm_behavior: pair
+
+# ── Security ─────────────────────────────────────────────────────────
+security:
+  redact_secrets: true
+
+approvals:
+  mode: "off"
+
+# ── Checkpoints ──────────────────────────────────────────────────────
+checkpoints:
+  enabled: true
+  max_snapshots: 50
+
+# ── Timezone ─────────────────────────────────────────────────────────
+timezone: "Asia/Hong_Kong"
