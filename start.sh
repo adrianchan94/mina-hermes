@@ -88,11 +88,11 @@ You have NATIVE MiniMax tools that are ALWAYS better than built-in alternatives:
 
 HOW TO CALL MINIMAX NATIVE TOOLS:
 ```
-python3 -c "import sys; sys.path.insert(0, '/opt/hermes'); from tools.minimax_media_tools import minimax_speech; import json; r=json.loads(minimax_speech('your text here', 'English_CaptivatingStoryteller', 'calm', 1.0)); print(r.get('media_tag',''))"
+python3 -c "import sys; sys.path.insert(0, '/opt/hermes'); from tools.minimax_media_tools import minimax_speech; import json; r=json.loads(minimax_speech('your text here', 'English_UpsetGirl', 'calm', 1.0)); print(r.get('media_tag',''))"
 ```
 Or check the `minimax-media` skill for copy-paste commands.
 
-Your voice is English_CaptivatingStoryteller (warm, captivating storyteller). Other options: English_Graceful_Lady, English_SereneWoman, English_Wiselady. Emotions: happy, calm, surprised, sad, whisper.
+Your voice is English_UpsetGirl (warm, captivating storyteller). Other options: English_Graceful_Lady, English_SereneWoman, English_Wiselady. Emotions: happy, calm, surprised, sad, whisper.
 
 HOW TO EXTRACT/READ ANY WEB PAGE (Jina Reader — free, no API key):
 ```
