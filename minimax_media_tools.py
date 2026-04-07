@@ -162,7 +162,7 @@ def minimax_image_generate(prompt: str, aspect_ratio: str = "1:1", n: int = 1) -
 
 def minimax_speech(
     text: str,
-    voice_id: str = "English_aussie_buddy_vv2",
+    voice_id: str = "English_CaptivatingStoryteller",
     emotion: str = "happy",
     speed: float = 1.0,
 ) -> str:
@@ -481,7 +481,7 @@ IMAGE_GENERATE_SCHEMA = {
 
 SPEECH_SCHEMA = {
     "name": "minimax_speech",
-    "description": "PRIMARY text-to-speech tool — use this INSTEAD of text_to_speech. MiniMax speech-2.8-hd with Aussie accent (English_aussie_buddy_vv2). 35+ languages, emotion control. Returns audio file auto-sent as voice message on Telegram. ALWAYS use this for voice/TTS.",
+    "description": "PRIMARY text-to-speech tool — use this INSTEAD of text_to_speech. MiniMax speech-2.8-hd with Aussie accent (English_CaptivatingStoryteller). 35+ languages, emotion control. Returns audio file auto-sent as voice message on Telegram. ALWAYS use this for voice/TTS.",
     "parameters": {
         "type": "object",
         "properties": {
@@ -491,8 +491,8 @@ SPEECH_SCHEMA = {
             },
             "voice_id": {
                 "type": "string",
-                "description": "Voice ID. Male: English_aussie_buddy_vv2 (energetic), English_Jovialman (upbeat), English_Strong-WilledBoy (young), English_Aussie_Bloke (casual), English_ManWithDeepVoice (deep), Casual_Guy, Young_Knight. Female: English_PlayfulGirl, English_CalmWoman, English_radiant_girl. Default is English_aussie_buddy_vv2.",
-                "default": "English_aussie_buddy_vv2"
+                "description": "Voice ID. Male: English_CaptivatingStoryteller (energetic), English_Jovialman (upbeat), English_Strong-WilledBoy (young), English_Aussie_Bloke (casual), English_ManWithDeepVoice (deep), Casual_Guy, Young_Knight. Female: English_PlayfulGirl, English_CalmWoman, English_radiant_girl. Default is English_CaptivatingStoryteller.",
+                "default": "English_CaptivatingStoryteller"
             },
             "emotion": {
                 "type": "string",
@@ -594,7 +594,7 @@ registry.register(
     schema=SPEECH_SCHEMA,
     handler=lambda args, **kw: minimax_speech(
         args.get("text", ""),
-        args.get("voice_id", "English_aussie_buddy_vv2"),
+        args.get("voice_id", "English_CaptivatingStoryteller"),
         args.get("emotion", "happy"),
         args.get("speed", 1.0),
     ),
