@@ -63,14 +63,35 @@ def _strip_think_blocks(text: str, as_spoiler: bool = False) -> str:
             return ""
         text = _COMPLETE_THINK_RE.sub(_to_spoiler, text)
     else:
-        text = _COMPLETE_THINK_RE.sub("", text)
+        # Convert complete thinking blocks to blockquote with 💭 prefix
+        def _to_thinking_display(m):
+            inner = re.sub(r'</?(?:think|thinking|reasoning|REASONING_SCRATCHPAD|thin|result)>', '', m.group(0), flags=re.IGNORECASE).strip()
+            if inner and len(inner) > 3:
+                # Prefix each line with > for MarkdownV2 blockquote
+                lines = inner.split("\\n")
+                quoted = "\\n".join("> " + line for line in lines if line.strip())
+                return "> " + chr(128173) + " " + quoted.lstrip("> ") + "\\n\\n"
+            return ""
+        text = _COMPLETE_THINK_RE.sub(_to_thinking_display, text)
+    # Convert SOUL.md-style 💭 prefix to blockquote too
+    # (Model writes 💭 directly when not using <think> tags)
+    if text.startswith(chr(128173)):
+        # Find end of thinking line(s) — separated from response by blank line
+        _split = text.find("\\n\\n")
+        if _split > 0:
+            _thinking = text[:_split]
+            _rest = text[_split:]
+            _tlines = _thinking.split("\\n")
+            _thinking = "\\n".join("> " + line for line in _tlines)
+            text = _thinking + _rest
+
+    # Hide unclosed (still generating) thinking blocks
     text = _UNCLOSED_THINK_RE.sub("", text)
-    # MiniMax-specific thinking tags: <think>...</think> and partial </thin> closes
+    # MiniMax-specific partial tags
     text = _MINIMAX_THIN_RE.sub("", text)
     text = _MINIMAX_THIN_OPEN_RE.sub("", text)
     text = _MINIMAX_THIN_CLOSE_RE.sub("", text)
-    # Catch-all: strip orphaned closing tags (e.g., </think> without matching <think>)
-    # that leak into user-facing output when models emit reasoning without proper open tags
+    # Strip orphaned closing tags
     text = re.sub(r'</?(?:think|thinking|reasoning|REASONING_SCRATCHPAD)>\s*', '', text, flags=re.IGNORECASE)
     text = re.sub(r"\\n{3,}", "\\n\\n", text)
     return text.strip()
@@ -214,6 +235,33 @@ if old_cancel in sc:
     print("[patch] stream_consumer.py — patched run() cancellation handler")
 else:
     print("[patch] stream_consumer.py — run() cancellation pattern not found")
+
+
+# 1f. Patch _clean_for_display to convert 💭 prefix to > 💭 blockquote
+old_clean = '''        if "MEDIA:" not in text and "[[audio_as_voice]]" not in text:
+            return text'''
+new_clean = '''        # Convert 💭 reasoning prefix to > blockquote
+        _thinking_emoji = chr(128173)
+        if text.startswith(_thinking_emoji):
+            _bq_split = text.find(chr(10) + chr(10))
+            if _bq_split > 0:
+                _bq_think = text[:_bq_split]
+                _bq_rest = text[_bq_split:]
+                _bq_lines = _bq_think.split(chr(10))
+                text = chr(10).join("> " + _l for _l in _bq_lines) + _bq_rest
+        # Strip leaked XML tool calls (M2.7 sometimes outputs these as text)
+        import re as _re
+        text = _re.sub(r"<minimax:tool_call>.*?</minimax:tool_call>", "", text, flags=_re.DOTALL)
+        text = _re.sub(r"<invoke\\s+name=.*?</invoke>", "", text, flags=_re.DOTALL)
+        text = _re.sub(r"</?minimax:tool_call>", "", text)
+        if "MEDIA:" not in text and "[[audio_as_voice]]" not in text:
+            return text'''
+if old_clean in sc:
+    sc = sc.replace(old_clean, new_clean)
+    changed = True
+    print("[patch] stream_consumer.py — patched _clean_for_display with 💭→blockquote")
+else:
+    print("[patch] stream_consumer.py — _clean_for_display pattern not found")
 
 if changed:
     _write(f"{BASE}/gateway/stream_consumer.py", sc)

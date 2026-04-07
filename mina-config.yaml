@@ -1,31 +1,29 @@
 # ═══════════════════════════════════════════════════════════════════════
 # Mina — Personal Companion for Marina
-# Hermes Agent on MiniMax M2.7 Highspeed
-# Multimodal: Gemma 4 26B via OpenRouter (images, video, audio)
+# MiniMax M2.7 Highspeed — Full native toolkit
 # ═══════════════════════════════════════════════════════════════════════
 
-# ── Model (text) ─────────────────────────────────────────────────────
+# ── Model ────────────────────────────────────────────────────────────
 model:
   default: "MiniMax-M2.7-highspeed"
-  provider: custom
-  base_url: "https://api.minimax.io/v1"
-  api_key: "${MINIMAX_API_KEY}"
-  include_thinking: true
+  provider: minimax
 
 # ── Agent behavior ───────────────────────────────────────────────────
 agent:
-  max_turns: 60
-  reasoning_effort: medium
+  max_turns: 90
   tool_use_enforcement: auto
 
+# ── Few-shot primer ──────────────────────────────────────────────────
+prefill_messages_file: "/opt/data/prefill.json"
+
 # ── Auxiliary models ─────────────────────────────────────────────────
-# Gemma 4 26B for ALL multimodal (vision, video, audio, speech)
-# MiniMax M2.7 for text-only tasks (cheaper, faster)
 auxiliary:
   vision:
-    provider: openrouter
-    model: "google/gemma-4-26b-a4b-it"
-    timeout: 60
+    provider: custom
+    model: "MiniMax-M2.7-highspeed"
+    base_url: "https://api.minimax.io/v1"
+    api_key: "${MINIMAX_API_KEY}"
+    timeout: 45
   web_extract:
     provider: custom
     model: "MiniMax-M2.7-highspeed"
@@ -37,7 +35,7 @@ auxiliary:
     model: "MiniMax-M2.7-highspeed"
     base_url: "https://api.minimax.io/v1"
     api_key: "${MINIMAX_API_KEY}"
-    timeout: 120
+    timeout: 180
   session_search:
     provider: custom
     model: "MiniMax-M2.7-highspeed"
@@ -70,44 +68,22 @@ auxiliary:
     timeout: 30
 
 # ── Context compression ─────────────────────────────────────────────
-# Flush memories BEFORE compressing so nothing is lost
 compression:
   enabled: true
-  threshold: 0.50
-  target_ratio: 0.20
-  protect_last_n: 25
+  threshold: 0.70
+  target_ratio: 0.40
+  protect_last_n: 50
   summary_model: "MiniMax-M2.7-highspeed"
   summary_provider: custom
   summary_base_url: "https://api.minimax.io/v1"
   summary_api_key: "${MINIMAX_API_KEY}"
 
-# ── Memory (PERSISTENT — stored on /opt/data volume) ────────────────
-# MEMORY.md = Mina's learned notes (favorite restaurants, preferences, etc.)
-# USER.md = Marina's profile (built up over conversations)
-# Both persist across restarts via NVMe volume at /opt/data
+# ── Memory ──────────────────────────────────────────────────────────
 memory:
   memory_enabled: true
   user_profile_enabled: true
   memory_char_limit: 4000
   user_char_limit: 2500
-
-# ── Session persistence ─────────────────────────────────────────────
-# Sessions stored in /opt/data/sessions/ (SQLite + JSON index)
-# Full conversation transcripts searchable via session_search
-session_reset:
-  mode: idle
-  idle_hours: 48
-  notify: true
-
-group_sessions_per_user: true
-unauthorized_dm_behavior: pair
-
-# ── Speech-to-text (voice messages) ─────────────────────────────────
-stt:
-  enabled: true
-  provider: local
-  model: base                    # ~150MB, downloads reliably without HF auth
-  language: en                   # Force English — avoids misdetection on short clips
 
 # ── Terminal ─────────────────────────────────────────────────────────
 terminal:
@@ -119,7 +95,6 @@ terminal:
     - MINIMAX_API_KEY
     - OPENROUTER_API_KEY
     - SUPERMEMORY_API_KEY
-    - TAVILY_API_KEY
 
 # ── File handling ────────────────────────────────────────────────────
 file_read_max_chars: 200000
@@ -127,11 +102,11 @@ file_read_max_chars: 200000
 # ── Code execution ──────────────────────────────────────────────────
 code_execution:
   timeout: 300
-  max_tool_calls: 40
+  max_tool_calls: 60
 
 # ── Web search ──────────────────────────────────────────────────────
 web:
-  backend: firecrawl
+  backend: minimax
 
 # ── Browser ──────────────────────────────────────────────────────────
 browser:
@@ -143,6 +118,26 @@ browser:
 platform_toolsets:
   cli: hermes-cli
   telegram: hermes-telegram
+
+# ── Skills ───────────────────────────────────────────────────────────
+skills:
+  external_dirs:
+    - /opt/hermes/baked-skills
+
+# ── MCP Servers ──────────────────────────────────────────────────────
+mcp_servers:
+  supermemory:
+    command: "python3"
+    args: ["/opt/hermes/supermemory_mcp.py"]
+    env:
+      SUPERMEMORY_API_KEY: "${SUPERMEMORY_API_KEY}"
+    timeout: 120
+    connection_timeout: 60
+  context7:
+    command: "npx"
+    args: ["-y", "@upstash/context7-mcp@latest"]
+    timeout: 60
+    connection_timeout: 30
 
 # ── Platforms ────────────────────────────────────────────────────────
 platforms:
@@ -156,32 +151,43 @@ platforms:
       port: 8642
   discord:
     enabled: false
-  slack:
-    enabled: false
 
 # ── Streaming ────────────────────────────────────────────────────────
 streaming:
   enabled: true
   transport: "auto"
-  discord: false
-  cli: true
   edit_interval: 2.0
   buffer_threshold: 80
-  min_tokens: 20
 
 # ── Display ──────────────────────────────────────────────────────────
 display:
   tool_progress: new
-  tool_progress_command: true
+  tool_progress_command: false
   compact: true
   streaming: true
   show_cost: false
-  show_reasoning: false
+  show_reasoning: true
   bell_on_complete: false
 
-# ── Human delay (off for speed) ─────────────────────────────────────
+# ── STT ──────────────────────────────────────────────────────────────
+stt:
+  enabled: true
+  provider: local
+  model: base
+  language: en
+
+# ── Human delay ──────────────────────────────────────────────────────
 human_delay:
   mode: "off"
+
+# ── Session resets ──────────────────────────────────────────────────
+session_reset:
+  mode: idle
+  idle_hours: 48
+  notify: true
+
+group_sessions_per_user: true
+unauthorized_dm_behavior: pair
 
 # ── Security ─────────────────────────────────────────────────────────
 security:
@@ -194,16 +200,6 @@ approvals:
 checkpoints:
   enabled: true
   max_snapshots: 50
-
-# ── MCP Servers (Supermemory — persistent memory across restarts) ────
-mcp_servers:
-  supermemory:
-    command: "python3"
-    args: ["/opt/hermes/supermemory_mcp.py"]
-    env:
-      SUPERMEMORY_API_KEY: "${SUPERMEMORY_API_KEY}"
-    timeout: 30
-    connection_timeout: 15
 
 # ── Timezone ─────────────────────────────────────────────────────────
 timezone: "Asia/Hong_Kong"
